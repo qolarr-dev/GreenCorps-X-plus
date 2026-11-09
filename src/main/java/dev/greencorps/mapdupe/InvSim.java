@@ -16,6 +16,7 @@ public final class InvSim {
 	public final Station station;
 	private final SimStack[] slots;
 	private SimStack cursor = SimStack.NONE;
+	private boolean bundleInsertsAtEnd;
 
 	public InvSim(Station station) {
 		this.station = station;
@@ -27,6 +28,7 @@ public final class InvSim {
 		this.station = other.station;
 		this.slots = other.slots.clone();
 		this.cursor = other.cursor;
+		this.bundleInsertsAtEnd = other.bundleInsertsAtEnd;
 	}
 
 	public InvSim copy() {
@@ -39,6 +41,14 @@ public final class InvSim {
 
 	public void set(int id, SimStack stack) {
 		slots[id] = stack == null || stack.isNone() ? SimStack.NONE : stack;
+	}
+
+	public boolean bundleInsertsAtEnd() {
+		return bundleInsertsAtEnd;
+	}
+
+	public void setBundleInsertsAtEnd(boolean value) {
+		bundleInsertsAtEnd = value;
 	}
 
 	public SimStack cursor() {
@@ -191,12 +201,12 @@ public final class InvSim {
 				break;
 			}
 		}
+		SimStack added = cursor.withCount(n);
 		if (merge >= 0) {
 			SimStack old = contents.remove(merge);
-			contents.add(0, old.withCount(old.count + n));
-		} else {
-			contents.add(0, cursor.withCount(n));
+			added = old.withCount(old.count + n);
 		}
+		contents.add(bundleInsertsAtEnd ? contents.size() : 0, added);
 		slots[id] = bundle.withContents(contents, bundle.selected);
 		cursor = cursor.withCount(cursor.count - n);
 		return true;

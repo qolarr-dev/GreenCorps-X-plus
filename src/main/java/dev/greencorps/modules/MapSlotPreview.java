@@ -389,7 +389,7 @@ public class MapSlotPreview extends Module {
 		try {
 			Module m = Modules.get().get("map-duper-plus");
 			if (m == null || !m.isActive()) return false;
-			Object r = m.getClass().getMethod("isCloning").invoke(m);
+			Object r = m.getClass().getMethod("isRunning").invoke(m);
 			return Boolean.TRUE.equals(r);
 		} catch (Throwable t) {
 			return false;

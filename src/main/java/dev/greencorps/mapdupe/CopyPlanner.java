@@ -267,12 +267,15 @@ public final class CopyPlanner {
 		a.sort(Long::compare);
 		b.sort(Long::compare);
 		if (!a.equals(b)) return CopyPlan.failed("The bundle changed; try again");
-		int n = target.size();
+		boolean atEnd = p.sim.bundleInsertsAtEnd();
+		List<Long> want = atEnd ? target.reversed() : target;
+		List<Long> have = atEnd ? current.reversed() : current;
+		int n = want.size();
 		// Longest tail target[n-m … n-1] that already appears in this order: those stay put.
 		int keep = 0;
-		int pos = current.size();
+		int pos = have.size();
 		for (int k = n - 1; k >= 0; k--) {
-			int at = current.subList(0, pos).lastIndexOf(target.get(k));
+			int at = have.subList(0, pos).lastIndexOf(want.get(k));
 			if (at < 0) break;
 			pos = at;
 			keep++;
@@ -281,7 +284,7 @@ public final class CopyPlanner {
 			List<SimStack> contents = p.sim.slot(slot).contents;
 			int index = -1;
 			for (int i = 0; i < contents.size(); i++) {
-				if (contents.get(i).key == target.get(k)) {
+				if (contents.get(i).key == want.get(k)) {
 					index = i;
 					break;
 				}
@@ -498,15 +501,16 @@ public final class CopyPlanner {
 		int b = st.emptySlots()[0];
 		int n = bundle.contents.size();
 		int left = total;
+		int take = sim.bundleInsertsAtEnd() ? 0 : n - 1;
 		for (int j = 0; j < n; j++) {
-			SimStack entry = sim.slot(src).contents.get(n - 1);
+			SimStack entry = sim.slot(src).contents.get(take);
 			int c = entry.count;
 			if (sim.slot(b).count < c) {
 				int room = SLOT_MAX - sim.slot(b).count;
 				if (!loadEmpties(b, Math.min(room, left - sim.slot(b).count))) return false;
 			}
-			steps.add(new Step.SelectBundle(src, n - 1, n));
-			sim.select(src, n - 1);
+			steps.add(new Step.SelectBundle(src, take, n));
+			sim.select(src, take);
 			if (!click(src, Step.RIGHT)) return fail("Could not take a map out of the bundle");
 			click(a, Step.LEFT);
 			for (int k = 0; k < c; k++) {

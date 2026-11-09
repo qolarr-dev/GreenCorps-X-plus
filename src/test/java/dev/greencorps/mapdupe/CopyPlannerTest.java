@@ -128,6 +128,28 @@ class CopyPlannerTest {
 	}
 
 	@Test
+	void bundleCopyKeepsOrderWhereInsertsLandAtTheEnd() {
+		for (Station st : Station.values()) {
+			if (st == Station.SHULKER) continue;
+			InvSim sim = inv(st);
+			sim.setBundleInsertsAtEnd(true);
+			List<SimStack> art = List.of(SimStack.filledMap(MAP_A, 1), SimStack.filledMap(MAP_B, 2), SimStack.filledMap(MAP_C, 1));
+			sim.set(st.invFirst, SimStack.bundle(BUNDLE, art));
+			sim.set(st.invFirst + 1, SimStack.bundle(BUNDLE, List.of()));
+			sim.set(st.invFirst + 2, SimStack.emptyMap(EMPTY, 10));
+			CopyPlan plan = CopyPlanner.bundle(sim, st.invFirst);
+			assertTrue(plan.ok(), st + ": " + plan.error());
+			assertClean(plan.end());
+			assertEquals(art.toString(), plan.end().slot(st.invFirst).contents.toString(), st + " source");
+			assertEquals(art.toString(), plan.end().slot(st.invFirst + 1).contents.toString(), st + " copy");
+			for (Step step : plan.steps()) {
+				if (step instanceof Step.SelectBundle s) assertEquals(0, s.index(), st + " select");
+			}
+			assertEquals(6, count(plan.end(), EMPTY), st + " empties");
+		}
+	}
+
+	@Test
 	void bundleCopyNeedsAnEmptyBundleAndAFreeSlot() {
 		InvSim sim = inv(Station.INVENTORY);
 		sim.set(9, SimStack.bundle(BUNDLE, List.of(SimStack.filledMap(MAP_A, 1))));
@@ -283,6 +305,22 @@ class CopyPlannerTest {
 		assertTrue(plan.clicks() <= 8, "2 clicks per moved stack: " + plan.clicks());
 		CopyPlan again = CopyPlanner.sortBundle(plan.end(), 9, List.of(1L, 2L, 3L, 4L));
 		assertEquals(0, again.clicks());
+	}
+
+	@Test
+	void bundleSortMovesStacksToEndWhereInsertsLandAtTheEnd() {
+		InvSim sim = inv(Station.INVENTORY);
+		sim.setBundleInsertsAtEnd(true);
+		List<SimStack> shuffled = List.of(SimStack.filledMap(3, 1), SimStack.filledMap(1, 1), SimStack.filledMap(4, 1), SimStack.filledMap(2, 1));
+		sim.set(9, SimStack.bundle(BUNDLE, shuffled));
+		CopyPlan plan = CopyPlanner.sortBundle(sim, 9, List.of(1L, 2L, 3L, 4L));
+		assertTrue(plan.ok(), plan.error());
+		assertClean(plan.end());
+		List<Long> order = new java.util.ArrayList<>();
+		for (SimStack s : plan.end().slot(9).contents) order.add(s.key);
+		assertEquals(List.of(1L, 2L, 3L, 4L), order);
+		assertEquals(4, plan.clicks());
+		assertEquals(0, CopyPlanner.sortBundle(plan.end(), 9, List.of(1L, 2L, 3L, 4L)).clicks());
 	}
 
 	@Test

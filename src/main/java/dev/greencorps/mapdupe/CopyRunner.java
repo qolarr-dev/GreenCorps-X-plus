@@ -24,6 +24,9 @@ public final class CopyRunner {
 
 	private static final int RESULT_TIMEOUT_TICKS = 100;
 	private static final long MIN_SETTLE_MS = 100;
+	private static final long OFF_PLAN_WAIT_MS = 5000;
+	private static final long SWALLOWED_RETRY_MS = 1000;
+	private static final int MAX_SWALLOWED = 20;
 
 	private final Station station;
 	private final int syncId;
@@ -39,6 +42,8 @@ public final class CopyRunner {
 	private int waited;
 	private long lastActivity;
 	private int lastRevision = Integer.MIN_VALUE;
+	private long retryAt;
+	private int swallowed;
 	private State state = State.RUNNING;
 	private String message;
 
@@ -101,15 +106,27 @@ public final class CopyRunner {
 		while (index < steps.size()) {
 			Step step = steps.get(index);
 			if (step instanceof Step.Click c) {
-				if (sent >= perTick || !ClickBudget.canSend(1)) return;
+				if (sent >= perTick || now < retryAt || !ClickBudget.canSend(1)) return;
 				String off = offPlan(mc, handler, c);
 				if (off != null) {
 					// Give late server corrections time to land, then stop instead of clicking into the wrong stack.
-					if (sent > 0 || now - lastActivity < settleMs(mc)) return;
+					if (sent > 0 || now - lastActivity < offPlanWaitMs(mc)) return;
 					mismatch(mc, handler, off);
 					return;
 				}
+				ItemStack cursorBefore = handler.getCursorStack().copy();
 				mc.interactionManager.clickSlot(syncId, c.slot(), c.button(), SlotActionType.PICKUP, mc.player);
+				if (ItemStack.areEqual(cursorBefore, handler.getCursorStack())) {
+					if (debug) GreenCorps.LOG.info("[Map Duper+] click {} was blocked by another mod; retrying", c.slot());
+					if (++swallowed > MAX_SWALLOWED) {
+						fail("Another mod keeps blocking the clicks");
+						return;
+					}
+					ClickBudget.backOff();
+					retryAt = now + SWALLOWED_RETRY_MS;
+					return;
+				}
+				swallowed = 0;
 				if (debug) GreenCorps.LOG.info("[Map Duper+] click {} {}", c.slot(), c.button() == Step.LEFT ? "left" : "right");
 				sent++;
 				clicksDone++;
@@ -137,6 +154,7 @@ public final class CopyRunner {
 				if (now - lastActivity < settleMs(mc)) return;
 				InvSim live = LiveInventory.read(handler, station, null, mc.world);
 				List<String> diff = live == null ? List.of("screen layout changed") : live.diff(cp.expected());
+				if (!diff.isEmpty() && now - lastActivity < offPlanWaitMs(mc)) return;
 				if (debug) GreenCorps.LOG.info("[Map Duper+] checkpoint {}: {}", cp.unit(), diff.isEmpty() ? "ok" : diff);
 				if (!diff.isEmpty()) {
 					mismatch(mc, handler, diff.size() + " slot" + (diff.size() == 1 ? "" : "s") + " differ after " + cp.unit());
@@ -156,6 +174,10 @@ public final class CopyRunner {
 			if (entry != null) ping = entry.getLatency();
 		}
 		return Math.max(MIN_SETTLE_MS, ping + 50L);
+	}
+
+	private static long offPlanWaitMs(MinecraftClient mc) {
+		return Math.max(settleMs(mc), OFF_PLAN_WAIT_MS);
 	}
 
 	/** Clear, then select: lands on the planned stack whatever the server had selected. */

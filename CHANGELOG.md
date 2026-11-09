@@ -2,6 +2,13 @@
 
 Player-facing notes for each GreenCorps X+ release. Downloads: [Releases](https://github.com/qolarr-dev/GreenCorps-X-plus/releases).
 
+## Unreleased
+
+**Fixes**
+- Map Duper+ no longer stops with "slot ... is not as planned" when copying bundles on 2b2t. 2b2t puts a stack back at the end of a bundle, not the front, and its answer can come seconds late when the server lags.
+- Map Duper+ sends a click again when another mod blocks it instead of stopping with "the cursor is not as planned".
+- Map Slot Preview pauses while Map Duper+ is running.
+
 ## 0.6.1: everything on 1.21.11, mapart walls without frames
 
 **1.21.11 gets every module.** Tooltip+, Map Slot Preview, Map Duper+, Safe Shulker, Time Machine, Sign Search, Timed Commands, Gateways Esp, End Floor and Book Filler now run on 1.21.11 too. On 1.21.11 the End Floor and Time Machine walls are flat fills instead of the animated forcefield.

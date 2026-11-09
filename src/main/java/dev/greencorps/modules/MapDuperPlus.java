@@ -78,7 +78,7 @@ public class MapDuperPlus extends Module {
 
 	private final Setting<BundleOrder> bundleOrder = sgGeneral.add(new EnumSetting.Builder<BundleOrder>()
 		.name("bundle-order")
-		.description("Reverse the bundle select index when copying bundles. Auto = on for 2b2t, which counts it the other way.")
+		.description("Server keeps bundle contents the other way round: reversed select index, put-backs land at the end. Auto = on for 2b2t.")
 		.defaultValue(BundleOrder.Auto)
 		.build()
 	);
@@ -359,7 +359,9 @@ public class MapDuperPlus extends Module {
 
 	private InvSim snapshotAt(HandledScreen<?> screen, Station st) {
 		if (st == null || mc.player == null) return null;
-		return LiveInventory.read(screen.getScreenHandler(), st, filters(), mc.world);
+		InvSim sim = LiveInventory.read(screen.getScreenHandler(), st, filters(), mc.world);
+		if (sim != null) sim.setBundleInsertsAtEnd(reverseBundleIndex());
+		return sim;
 	}
 
 	/** Copy All; a second Copy All within 10 s needs a confirming click. */
